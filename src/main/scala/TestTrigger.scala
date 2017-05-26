@@ -2,7 +2,7 @@ package org.apache.flink.quickstart
 
 import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
-import org.apache.flink.quickstart.{ParsedLine, StreamingJob}
+import org.apache.flink.quickstart.utils.AccTagInMemory
 import org.apache.flink.streaming.api.windowing.triggers.Trigger.TriggerContext
 import org.apache.flink.streaming.api.windowing.triggers.{Trigger, TriggerResult}
 import org.apache.flink.streaming.api.windowing.windows.{TimeWindow, Window}
@@ -21,7 +21,7 @@ class TestTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) e
     window: TimeWindow,
     ctx: TriggerContext): TriggerResult = {
 
-    val state = ctx.getPartitionedState(StreamingJob.descriptor)
+    val state = ctx.getPartitionedState(StackOverflowStreamingJob.descriptor)
     //    println("stringMonth: " + state.value)
     val month: Long = event.values.head.total_score
     println("int: " + month)
