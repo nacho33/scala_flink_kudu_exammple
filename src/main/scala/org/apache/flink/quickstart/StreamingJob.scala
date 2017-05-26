@@ -121,7 +121,7 @@ object StreamingJob {
 
   def main(args: Array[String]) {
     val KUDU_MASTER = "192.168.56.101"
-    val DEST_TABLE = "prueba_1"
+    val DEST_TABLE = "prueba_2"
     val client = new KuduClient.KuduClientBuilder(KUDU_MASTER).build()
 
 
@@ -131,10 +131,10 @@ object StreamingJob {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 
     // configure event-time characteristics
-    env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+    //env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
 
     // generate a Watermark every second
-    env.getConfig.setAutoWatermarkInterval(1000);
+    //env.getConfig.setAutoWatermarkInterval(1000);
 
     val props: Properties = new Properties
     props.setProperty("zookeeper.connect", "localhost:2181"); // Zookeeper default host:port
@@ -163,19 +163,7 @@ object StreamingJob {
       if(time == "NA") None else Some(new DateTime(time))
 
     }
-    val soLines: DataStream[SoLine] = lines.map{ line =>
-      val fields: List[String] = line.split(",").toList
-      SoLine(
-        fields(0),
-        new DateTime(fields(1).replaceAll("\\s", "")),
-        getOptionDateTime(fields(2)),
-        getOptionDateTime(fields(3)),
-        cleanInt(fields(4), 0),
-        cleanInt(fields(5), 0),
-        cleanInt(fields(6), 0),
-        fields(7).split("\\|").toList
-      )
-    }
+
 
     def getMonthYear(date: DateTime): String = {
       val stringMonth = date.getMonthOfYear.toString
@@ -200,6 +188,21 @@ object StreamingJob {
       }
       x
     }
+
+    val soLines: DataStream[SoLine] = lines.map{ line =>
+      val fields: List[String] = line.split(",").toList
+      SoLine(
+        fields(0),
+        new DateTime(fields(1).replaceAll("\\s", "")),
+        getOptionDateTime(fields(2)),
+        getOptionDateTime(fields(3)),
+        cleanInt(fields(4), 0),
+        cleanInt(fields(5), 0),
+        cleanInt(fields(6), 0),
+        fields(7).split("\\|").toList
+      )
+    }
+
     /*val parsedLines: WindowedStream[ParsedLine, String, TimeWindow] = soLines.flatMap{ line =>
       val isClosed = line.closedDate.isDefined
       line.tags.map { tag =>
@@ -220,9 +223,9 @@ object StreamingJob {
       el: ParsedLine): Map[String, AccTagInMemory] = {
 
       println("tag: " + el.tag)
-      if (acc.keys.toList.contains(el.tag)) {
+      val x = if (acc.keys.toList.contains(el.tag)) {
         val accTag: AccTagInMemory = acc(el.tag)
-        acc ++ Map(el.tag -> AccTagInMemory(
+        acc ++: Map(el.tag -> AccTagInMemory(
           el.tag,
           accTag.creationMonth,
           accTag.questions,
@@ -233,7 +236,7 @@ object StreamingJob {
           accTag.answerCount + el.answerCount
         ))
       } else {
-        acc ++ Map(el.tag -> AccTagInMemory(
+        acc ++: Map(el.tag -> AccTagInMemory(
           el.tag,
           el.creationMonth,
           1L,
@@ -244,23 +247,26 @@ object StreamingJob {
           el.answerCount
         ))
       }
+      println(acc)
+      x
     }
 
-  /*  val parsedLines: WindowedStream[ParsedLine, String, TimeWindow] =
+    val accTag: DataStream[Map[String, AccTagInMemory]] =
       soLines
         .flatMap(getParsedLine(_))
         .keyBy(_.tag)
-        .timeWindow(Time.seconds(5))
-    //.timeWindow(Time.days(32))
+        .timeWindow(Time.hours(1))
         .trigger(new MonthTrigger(descriptor))
-*/
-    val parsedLines2: DataStream[ParsedLine] =
+        .fold(Map.empty: Map[String, AccTagInMemory]){(acc, el) =>
+          println("fold")
+          aggregateData(acc, el)}
+  /*  val parsedLines2: DataStream[ParsedLine] =
       soLines
         .flatMap(getParsedLine(_))
+*/
 
-    parsedLines2.print
 
-   /* val accTag: DataStream[Map[String, AccTagInMemory]] =
+    /*val accTag: DataStream[Map[String, AccTagInMemory]] =
       parsedLines.fold(Map.empty: Map[String, AccTagInMemory])((acc, el) =>
         aggregateData(acc, el))
 
@@ -272,6 +278,7 @@ object StreamingJob {
     val columns: Array[String] = Array[String]("idd", "creationDate", "closedDate", "deletionDate", "score", "userId", "answerCount", "tags")
     val columns2: List[String] = List("idd", "creationDate", "closedDate", "deletionDate", "score", "userId", "answerCount", "tags")
     val parsedLineColumns = List("tag", "creationMonth", "timeToClose", "closed", "score", "userId", "answerCount")
+    val aggTagColumns = List("tag", "creationMonth", "questions", "closed_questions", "total_time_closing", "total_score", "unique_users", "answerCount")
 
 
     //soLines.print
@@ -279,7 +286,7 @@ object StreamingJob {
     //soLines.addSink(new KuduSink(KUDU_MASTER, DEST_TABLE, columnNames))
     val kuduSink: KuduSink = new KuduSink(KUDU_MASTER, DEST_TABLE, parsedLineColumns.toArray)
     //lines.addSink(new KuduSink(KUDU_MASTER, DEST_TABLE, columns))
-    val b: DataStream[RowSerializable] = parsedLines2.map{line =>
+    /*val b: DataStream[RowSerializable] = parsedLines2.map{line =>
       val row = new RowSerializable(7)
       row.setField(0, line.tag)
       row.setField(1, line.creationMonth.toString)
@@ -289,9 +296,24 @@ object StreamingJob {
       row.setField(5, line.userId.toString)
       row.setField(6, line.answerCount.toString)
       row
+    }*/
+    val b: DataStream[RowSerializable] = accTag.flatMap{line =>
+      line.values.map{el =>
+        val row = new RowSerializable(8)
+        row.setField(0, el.tag)
+        row.setField(1, el.creationMonth.toString)
+        row.setField(2, el.questions.toString)
+        row.setField(3, el.closed_questions.toString)
+        row.setField(4, el.total_time_closing.toString)
+        row.setField(5, el.total_score.toString)
+        row.setField(6, el.unique_users.length.toString)
+        row.setField(7, el.answerCount.toString)
+        row
+      }
+
     }
     b.print
-    b.addSink(kuduSink)
+    //b.addSink(kuduSink)
     /*val c: DataStream[String] = b.map(x => "adsf")
     val kafkaProducer: FlinkKafkaProducer010[String] = new FlinkKafkaProducer010[String](
       "stack_topic_2",

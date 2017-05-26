@@ -2,53 +2,40 @@ package org.apache.flink.quickstart
 
 import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
+import org.apache.flink.quickstart.{ParsedLine, StreamingJob}
 import org.apache.flink.streaming.api.windowing.triggers.Trigger.TriggerContext
 import org.apache.flink.streaming.api.windowing.triggers.{Trigger, TriggerResult}
 import org.apache.flink.streaming.api.windowing.windows.{TimeWindow, Window}
 
-object MonthState {
+object TestState {
   var month = "072008"
 }
 /**
   * Created by nacho on 2/05/17.
   */
-class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) extends Trigger[ParsedLine, TimeWindow] {
+class TestTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) extends Trigger[Map[String, AccTagInMemory], TimeWindow] {
   var m = ""
   override def onElement(
-    event: ParsedLine,
+    event: Map[String, AccTagInMemory],
     timestamp: Long,
     window: TimeWindow,
     ctx: TriggerContext): TriggerResult = {
 
-    //val state = ctx.getPartitionedState(StreamingJob.descriptor)
-//    println("stringMonth: " + state.value)
-    val month: String = event.creationMonth
-    /*val monthState: String = {
-      try{
-        val stringMonth = state.value.toString
-        if(stringMonth.length == 5) "0" + stringMonth
-        else stringMonth
-      } catch {
-        case e =>
-          println("PRIMER: month=" + month)
-          state.update(month.toInt)
-          MonthState.month = month
-          month
-      }
-
-    }
-*/
-  //  println("month: " + month + " -- monthState: " + MonthState.month)
+    val state = ctx.getPartitionedState(StreamingJob.descriptor)
+    //    println("stringMonth: " + state.value)
+    val month: Long = event.values.head.total_score
+    println("int: " + month)
 
 
-    if(MonthState.month == month) {
+    if(month % 10 == 0) {
       //if(monthState == month) {
-        TriggerResult.CONTINUE
-      }else{
-        println("fire and purge")
-        MonthState.month = month
-        TriggerResult.FIRE_AND_PURGE
-      }
+      println("fire and purg")
+      TriggerResult.FIRE_AND_PURGE
+    }else{
+      println("continue")
+
+      TriggerResult.CONTINUE
+    }
 
 
 
@@ -60,7 +47,7 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
     ctx: TriggerContext): TriggerResult = {
     println("onEventTime")
     // trigger final computation
-//    TriggerResult.FIRE_AND_PURGE
+    //    TriggerResult.FIRE_AND_PURGE
     throw new UnsupportedOperationException("I am not a processing time trigger")
   }
 
