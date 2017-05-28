@@ -10,7 +10,8 @@ object CustomKuduUtils {
 
   val aggTagColumns = List(
     "tag",
-    "creationMonth",
+    "month",
+    "year",
     "questions",
     "closed_questions",
     "total_time_closing",
@@ -22,7 +23,8 @@ object CustomKuduUtils {
     List(
       ("id", "INT"),
       ("tag", "STRING"),
-      ("creationMonth", "STRING"),
+      ("month", "STRING"),
+      ("year", "STRING"),
       ("questions", "INT"),
       ("closed_questions", "INT"),
       ("total_time_closing", "INT"),

@@ -29,6 +29,7 @@ case class SoLine(
 )
 
 case class ParsedLine(
+  environment: String,
   tag: String,
   creationMonth: String,
   timeToClose: Long,

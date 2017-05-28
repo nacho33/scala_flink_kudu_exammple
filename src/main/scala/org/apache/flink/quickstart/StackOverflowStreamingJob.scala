@@ -22,16 +22,17 @@ object StackOverflowStreamingJob {
   def main(args: Array[String]) {
     //val KUDU_MASTER = "192.168.56.101"
     val KUDU_MASTER = "34.202.225.92"
-    val DEST_TABLE = "no_stack_v12"
-    //val TIME_SECONDS = 3600
-    val TIME_SECONDS = 30
-
+    val DEST_TABLE = "stack_small_bd"
+    val TIME_SECONDS = 3600
+    //val TIME_SECONDS = 150
     val DAY_MILLISECONDS = 24*60*60*1000
 
     val client = new KuduClient.KuduClientBuilder(KUDU_MASTER).build()
 
     if(!client.tableExists(DEST_TABLE))
        CustomKuduUtils.createTable(DEST_TABLE, client)
+
+    Thread.sleep(3000)
 
     // set up the streaming execution environment
     val env = StreamExecutionEnvironment.getExecutionEnvironment
@@ -72,6 +73,7 @@ object StackOverflowStreamingJob {
       val isClosed = line.closedDate.isDefined
       line.tags.map { tag =>
         ParsedLine(
+          "test",
           tag,
           ProcessingUtils.getMonthYear(line.creationDate),
           if (isClosed) line.closedDate.get.getMillis - line.creationDate.getMillis else 0L,
@@ -115,13 +117,13 @@ object StackOverflowStreamingJob {
       )
     }
 
+    val parsedLines: DataStream[ParsedLine] = soLines.flatMap(getParsedLine(_))
     /*
      * transforming data into ParsedLines in order to have one tag
      * per line. Then we partitionate with the tag.
      * Finally we process the window
      */
-    val cc: DataStream[RowSerializable] = soLines
-      .flatMap(getParsedLine(_))
+    val cc: DataStream[RowSerializable] = parsedLines
       .keyBy(_.tag)
       .timeWindow(Time.seconds(TIME_SECONDS))
       //.trigger(new MonthTrigger(descriptor))
@@ -130,15 +132,15 @@ object StackOverflowStreamingJob {
         window: TimeWindow,
         events: Iterable[ParsedLine],
         out: Collector[RowSerializable]) =>
-        events.map{event =>
-        }
-        val group: Map[(String, String), Iterable[ParsedLine]] = events.groupBy(record => (record.tag, record.creationMonth))
+        //println(events.toList.length)
+
+      val group: Map[(String, String), Iterable[ParsedLine]] = events.groupBy(record => (record.tag, record.creationMonth))
         val tags: Iterable[(String, String)] = group.keys
-        tags.map{ tag =>
-          val parsedLineIterable: Iterable[ParsedLine] = group(tag)
+        tags.map{ tagMonth =>
+          val parsedLineIterable: Iterable[ParsedLine] = group(tagMonth)
           val defaultAccTagInMemory = AccTagInMemory(
-            tag._1,
-            tag._2,
+            tagMonth._1,
+            tagMonth._2,
             0L,
             0L,
             0L,
@@ -152,24 +154,26 @@ object StackOverflowStreamingJob {
             }
 
           val closingTimeDays: Int = (accTag.total_time_closing / DAY_MILLISECONDS).toInt
-          val row = new RowSerializable(8)
+          val (year, month ): (String, String) = ProcessingUtils.getMonthAndYear(accTag.creationMonth)
+
+          val row = new RowSerializable(9)
               row.setField(0, accTag.tag)
-              row.setField(1, accTag.creationMonth)
-              row.setField(2, accTag.questions.toInt)
-              row.setField(3, accTag.closed_questions.toInt)
-              row.setField(4, closingTimeDays)
-              row.setField(5, accTag.total_score.toInt)
-              row.setField(6, accTag.unique_users.distinct.length)
-              row.setField(7, accTag.answerCount.toInt)
+              row.setField(1, month)
+              row.setField(2, year)
+              row.setField(3, accTag.questions.toInt)
+              row.setField(4, accTag.closed_questions.toInt)
+              row.setField(5, closingTimeDays)
+              row.setField(6, accTag.total_score.toInt)
+              row.setField(7, accTag.unique_users.distinct.length)
+              row.setField(8, accTag.answerCount.toInt)
 
           out.collect( row )
         }
 
       }
-
     cc.addSink(kuduSink)
 
     // execute program
-    env.execute("Flink Streaming Scala API Skeleton")
+    env.execute
   }
 }

@@ -8,13 +8,16 @@ import org.apache.flink.streaming.api.windowing.triggers.{Trigger, TriggerResult
 import org.apache.flink.streaming.api.windowing.windows.{TimeWindow, Window}
 
 object MonthState {
-  var month = "072008"
+  var month = "200807"
+  val r = scala.util.Random
 }
 /**
   * Created by nacho on 2/05/17.
   */
 class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) extends Trigger[ParsedLine, TimeWindow] {
   var m = ""
+
+
   override def onElement(
     event: ParsedLine,
     timestamp: Long,
@@ -41,17 +44,27 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
 */
   //  println("month: " + month + " -- monthState: " + MonthState.month)
 
-
-    if(MonthState.month == month) {
+    if(m == ""){
+      m = month
+      TriggerResult.CONTINUE
+    }else if(m == month) {
       //if(monthState == month) {
-        TriggerResult.CONTINUE
-      }else{
-        println("fire and purge")
-        MonthState.month = month
-        TriggerResult.FIRE_AND_PURGE
-      }
-
-
+      TriggerResult.CONTINUE
+    }else{
+      println("fire and purge: " + month)
+      m = month
+      TriggerResult.FIRE_AND_PURGE
+    }
+    /*
+    if(MonthState.r.nextInt(1000) > 3) {
+      //if(monthState == month) {
+      TriggerResult.CONTINUE
+    }else{
+      println("fire and purge: " + month)
+      m = month
+      TriggerResult.FIRE_AND_PURGE
+    }
+*/
 
   }
 
@@ -62,7 +75,8 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
     println("onEventTime")
     // trigger final computation
 //    TriggerResult.FIRE_AND_PURGE
-    throw new UnsupportedOperationException("I am not a processing time trigger")
+    TriggerResult.CONTINUE
+    //throw new UnsupportedOperationException("I am not a processing time trigger")
   }
 
   override def onProcessingTime(
@@ -70,8 +84,8 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
     window: TimeWindow,
     ctx: TriggerContext): TriggerResult = {
     println("onProcessingTime")
-
-    throw new UnsupportedOperationException("I am not a processing time trigger")
+    TriggerResult.CONTINUE
+    //throw new UnsupportedOperationException("I am not a processing time trigger")
   }
 
   override def clear(
@@ -79,8 +93,8 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
     ctx: TriggerContext
   ) = {
     println("clear")
-
-    throw new UnsupportedOperationException("I am not a processing clear")
+    TriggerResult.CONTINUE
+    //throw new UnsupportedOperationException("I am not a processing clear")
   }
 
 }

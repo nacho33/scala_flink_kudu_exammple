@@ -96,11 +96,11 @@ under the License.
 		
 		<!-- explicitly add a standard loggin framework, as Flink does not (in the future) have
 			a hard dependency on one specific framework by default -->
-		<dependency>
+		<!--<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>${slf4j.version}</version>
-		</dependency>
+		</dependency>-->
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
@@ -131,11 +131,6 @@ under the License.
             <artifactId>flink-clients_2.10</artifactId>
             <version>${flink.version}</version>
         </dependency>
-		<dependency>
-			<groupId>org.mongodb</groupId>
-			<artifactId>mongo-hadoop-core</artifactId>
-			<version>${mongodb.hadoop.version}</version>
-		</dependency>
 	</dependencies>
 
 	<profiles>
