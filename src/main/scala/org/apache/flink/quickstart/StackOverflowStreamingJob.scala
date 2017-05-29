@@ -22,7 +22,7 @@ object StackOverflowStreamingJob {
   def main(args: Array[String]) {
     //val KUDU_MASTER = "192.168.56.101"
     val KUDU_MASTER = "34.202.225.92"
-    val DEST_TABLE = "stack_small_bd"
+    val DEST_TABLE = "stack_small_bd_v5"
     val TIME_SECONDS = 3600
     //val TIME_SECONDS = 150
     val DAY_MILLISECONDS = 24*60*60*1000
@@ -73,7 +73,7 @@ object StackOverflowStreamingJob {
       val isClosed = line.closedDate.isDefined
       line.tags.map { tag =>
         ParsedLine(
-          "test",
+          tag.charAt(0).toString, // This is to partitionate
           tag,
           ProcessingUtils.getMonthYear(line.creationDate),
           if (isClosed) line.closedDate.get.getMillis - line.creationDate.getMillis else 0L,
@@ -124,15 +124,14 @@ object StackOverflowStreamingJob {
      * Finally we process the window
      */
     val cc: DataStream[RowSerializable] = parsedLines
-      .keyBy(_.tag)
+      .keyBy(_.environment)
       .timeWindow(Time.seconds(TIME_SECONDS))
-      //.trigger(new MonthTrigger(descriptor))
+      .trigger(new MonthTrigger(descriptor))
       .apply { (
         tag: String,  // id, de la key
         window: TimeWindow,
         events: Iterable[ParsedLine],
         out: Collector[RowSerializable]) =>
-        //println(events.toList.length)
 
       val group: Map[(String, String), Iterable[ParsedLine]] = events.groupBy(record => (record.tag, record.creationMonth))
         val tags: Iterable[(String, String)] = group.keys
@@ -171,6 +170,7 @@ object StackOverflowStreamingJob {
         }
 
       }
+
     cc.addSink(kuduSink)
 
     // execute program
