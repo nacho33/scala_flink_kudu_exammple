@@ -25,7 +25,6 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
       m = month
       TriggerResult.CONTINUE
     }else if(m == month) {
-      //if(monthState == month) {
       TriggerResult.CONTINUE
     }else{
       println("fire and purge: " + month)
@@ -40,7 +39,6 @@ class MonthTrigger[W <: TimeWindow](descriptor2: ValueStateDescriptor[Integer]) 
     window: TimeWindow,
     ctx: TriggerContext): TriggerResult = {
     println("onEventTime")
-    // trigger final computation
     TriggerResult.CONTINUE
     //throw new UnsupportedOperationException("I am not a processing time trigger")
   }

@@ -20,11 +20,11 @@ object StackOverflowStreamingJob {
   val descriptor = new ValueStateDescriptor[Integer]("month", Integer.TYPE)
 
   def main(args: Array[String]) {
-    //val KUDU_MASTER = "192.168.56.101"
+
     val KUDU_MASTER = "34.202.225.92"
     val DEST_TABLE = "stack_small_bd_v5"
     val TIME_SECONDS = 3600
-    //val TIME_SECONDS = 150
+
     val DAY_MILLISECONDS = 24*60*60*1000
 
     val client = new KuduClient.KuduClientBuilder(KUDU_MASTER).build()
@@ -44,9 +44,9 @@ object StackOverflowStreamingJob {
     //env.getConfig.setAutoWatermarkInterval(1000);
 
     val props: Properties = new Properties
-    props.setProperty("zookeeper.connect", "localhost:2181"); // Zookeeper default host:port
-    props.setProperty("bootstrap.servers", "localhost:9092"); // Broker default host:port
-    props.setProperty("group.id", "myGroup");                 // Consumer group ID
+    props.setProperty("zookeeper.connect", "34.202.225.92:2181"); // Zookeeper default host:port
+    props.setProperty("bootstrap.servers", "34.202.225.92:9092"); // Broker default host:port
+    props.setProperty("group.id", "myGroup2");                 // Consumer group ID
     props.setProperty("auto.offset.reset", "earliest");       // Always read topic from start
 
     val kuduSink: KuduSink = new KuduSink(KUDU_MASTER, DEST_TABLE, CustomKuduUtils.aggTagColumns.toArray)
@@ -117,12 +117,13 @@ object StackOverflowStreamingJob {
       )
     }
 
-    val parsedLines: DataStream[ParsedLine] = soLines.flatMap(getParsedLine(_))
+
     /*
      * transforming data into ParsedLines in order to have one tag
-     * per line. Then we partitionate with the tag.
+     * per line. Then we partitionate with the first letter of the tag.
      * Finally we process the window
      */
+    val parsedLines: DataStream[ParsedLine] = soLines.flatMap(getParsedLine(_))
     val cc: DataStream[RowSerializable] = parsedLines
       .keyBy(_.environment)
       .timeWindow(Time.seconds(TIME_SECONDS))
@@ -170,7 +171,7 @@ object StackOverflowStreamingJob {
         }
 
       }
-
+    // We add the kuduSink to insert
     cc.addSink(kuduSink)
 
     // execute program
