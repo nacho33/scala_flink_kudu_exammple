@@ -22,12 +22,22 @@ object StackOverflowStreamingJob {
   def main(args: Array[String]) {
 
     val KUDU_MASTER = "34.202.225.92"
-    val DEST_TABLE = "stack_small_bd_v5"
+    val DEST_TABLE = "stack_bd_v6"
     val TIME_SECONDS = 3600
-
+    var index = 1
     val DAY_MILLISECONDS = 24*60*60*1000
 
     val client = new KuduClient.KuduClientBuilder(KUDU_MASTER).build()
+
+    val tagList = List("spark", "hadoop", "flink", "impala", "drill", "scala", "java",
+      "tableau", "mongo", "cassandra", "apex", "apache-drill", "ranger", "sentry", "mahout",
+      "r", "python", "pandas", "druid", "amazon", "aws", "elastic", "logstash", "elk",
+      "kibana", "google", "gcp", "cloudera", "hortonworks", "hbase", "lucene", "solr",
+      "lambda", "kappa", "science", "presto", "storm", "pulsar", "redis", "berkley", "neo4j",
+      "kafka", "samza", "hive", "pig", "sqoop", "flume", "sql", "kudu", "mongodb", "akka",
+      "java", "amazon-kinesis", "amazon-web-services", "azure", "pentaho", "ambari", "maven",
+      "sbt", "couchdb", "couchbase", "sql", "nosql", "docker", "kubernetes", "google-cloud",
+      "hdfs", "mapreduce", "rabbitmq", "microservices", "amazon-s3")
 
     if(!client.tableExists(DEST_TABLE))
        CustomKuduUtils.createTable(DEST_TABLE, client)
@@ -44,8 +54,8 @@ object StackOverflowStreamingJob {
     //env.getConfig.setAutoWatermarkInterval(1000);
 
     val props: Properties = new Properties
-    props.setProperty("zookeeper.connect", "34.202.225.92:2181"); // Zookeeper default host:port
-    props.setProperty("bootstrap.servers", "34.202.225.92:9092"); // Broker default host:port
+    props.setProperty("zookeeper.connect", "localhost:2181"); // Zookeeper default host:port
+    props.setProperty("bootstrap.servers", "localhost:9092"); // Broker default host:port
     props.setProperty("group.id", "myGroup2");                 // Consumer group ID
     props.setProperty("auto.offset.reset", "earliest");       // Always read topic from start
 
@@ -71,9 +81,12 @@ object StackOverflowStreamingJob {
      */
     def getParsedLine(line: SoLine): Seq[ParsedLine] = {
       val isClosed = line.closedDate.isDefined
+      index = index + 1
       line.tags.map { tag =>
         ParsedLine(
-          tag.charAt(0).toString, // This is to partitionate
+          index,
+          //tag.charAt(0).toString, // This is to partitionate
+          "a", // This is to partitionate
           tag,
           ProcessingUtils.getMonthYear(line.creationDate),
           if (isClosed) line.closedDate.get.getMillis - line.creationDate.getMillis else 0L,
@@ -91,9 +104,10 @@ object StackOverflowStreamingJob {
       el: ParsedLine): AccTagInMemory = {
 
       AccTagInMemory(
+        el.index,
         acc.tag,
         acc.creationMonth,
-        acc.questions,
+        acc.questions + 1,
         if (el.closed) acc.closed_questions + 1 else acc.closed_questions,
         if (el.closed) acc.total_time_closing + el.timeToClose else acc.total_time_closing,
         acc.total_score + el.score,
@@ -124,6 +138,7 @@ object StackOverflowStreamingJob {
      * Finally we process the window
      */
     val parsedLines: DataStream[ParsedLine] = soLines.flatMap(getParsedLine(_))
+        .filter(line => tagList.contains(line.tag))
     val cc: DataStream[RowSerializable] = parsedLines
       .keyBy(_.environment)
       .timeWindow(Time.seconds(TIME_SECONDS))
@@ -139,6 +154,7 @@ object StackOverflowStreamingJob {
         tags.map{ tagMonth =>
           val parsedLineIterable: Iterable[ParsedLine] = group(tagMonth)
           val defaultAccTagInMemory = AccTagInMemory(
+            1,
             tagMonth._1,
             tagMonth._2,
             0L,
@@ -156,16 +172,17 @@ object StackOverflowStreamingJob {
           val closingTimeDays: Int = (accTag.total_time_closing / DAY_MILLISECONDS).toInt
           val (year, month ): (String, String) = ProcessingUtils.getMonthAndYear(accTag.creationMonth)
 
-          val row = new RowSerializable(9)
-              row.setField(0, accTag.tag)
-              row.setField(1, month)
-              row.setField(2, year)
-              row.setField(3, accTag.questions.toInt)
-              row.setField(4, accTag.closed_questions.toInt)
-              row.setField(5, closingTimeDays)
-              row.setField(6, accTag.total_score.toInt)
-              row.setField(7, accTag.unique_users.distinct.length)
-              row.setField(8, accTag.answerCount.toInt)
+          val row = new RowSerializable(10)
+              row.setField(0, accTag.index)
+              row.setField(1, accTag.tag)
+              row.setField(2, month)
+              row.setField(3, year)
+              row.setField(4, accTag.questions.toInt)
+              row.setField(5, accTag.closed_questions.toInt)
+              row.setField(6, closingTimeDays)
+              row.setField(7, accTag.total_score.toInt)
+              row.setField(8, accTag.unique_users.distinct.length)
+              row.setField(9, accTag.answerCount.toInt)
 
           out.collect( row )
         }

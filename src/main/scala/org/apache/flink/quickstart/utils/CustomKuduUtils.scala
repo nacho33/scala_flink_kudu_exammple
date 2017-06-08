@@ -9,6 +9,7 @@ import org.apache.kudu.{ColumnSchema, Schema, Type}
 object CustomKuduUtils {
 
   val aggTagColumns = List(
+    "index",
     "tag",
     "month",
     "year",
@@ -22,6 +23,7 @@ object CustomKuduUtils {
   val tupleKuduColumns: List[(String, String)] =
     List(
       ("id", "INT"),
+      ("index", "INT"),
       ("tag", "STRING"),
       ("month", "STRING"),
       ("year", "STRING"),

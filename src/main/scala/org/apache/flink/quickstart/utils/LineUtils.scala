@@ -18,6 +18,7 @@ case class SoLine(
 )
 
 case class ParsedLine(
+  index: Int,
   environment: String,
   tag: String,
   creationMonth: String,
@@ -31,6 +32,7 @@ case class ParsedLine(
 }
 
 case class AccTagInMemory(
+  index: Int,
   tag: String,
   creationMonth: String,
   questions: Long,

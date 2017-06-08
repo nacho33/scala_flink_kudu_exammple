@@ -48,7 +48,6 @@ under the License.
 		<flink.version>1.2.0</flink.version>
 		<slf4j.version>1.7.7</slf4j.version>
 		<log4j.version>1.2.17</log4j.version>
-		<mongodb.hadoop.version>1.3.0</mongodb.hadoop.version>
 		<hadoop.version>2.4.0</hadoop.version>
 	</properties>
 
